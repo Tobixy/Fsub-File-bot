@@ -120,42 +120,50 @@ REPLY_ERROR = """<code>Use this command as a replay to any telegram message with
     
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
-    buttons = [
-        [
+    buttons = []
+
+    if FORCE_SUB_CHANNEL1:
+        buttons.append([
             InlineKeyboardButton(
                 "Join Channel 1",
-                url=client.invitelink)
-        ],
-        [
+                url=f"https://t.me/{FORCE_SUB_CHANNEL1}"
+            )
+        ])
+
+    if FORCE_SUB_CHANNEL2:
+        buttons.append([
             InlineKeyboardButton(
                 "Join Channel 2",
-                url=client.invite_link2)  # Add the second channel's invite link here
-        ]
-    ]
+                url=f"https://t.me/{FORCE_SUB_CHANNEL2}"
+            )
+        ])
+
     try:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text='Try Again',
-                    url=f"https://t.me/{client.username}?start={message.command[1]}"
-                )
-            ]
-        )
+        buttons.append([
+            InlineKeyboardButton(
+                text='Try Again',
+                url=f"https://t.me/{client.username}?start={message.command[1]}"
+            )
+        ])
     except IndexError:
         pass
 
-    await message.reply(
-        text=FORCE_MSG.format(
-            first=message.from_user.first_name,
-            last=message.from_user.last_name,
-            username=None if not message.from_user.username else '@' + message.from_user.username,
-            mention=message.from_user.mention,
-            id=message.from_user.id
-        ),
-        reply_markup=InlineKeyboardMarkup(buttons),
-        quote=True,
-        disable_web_page_preview=True
-    )
+    if FORCE_SUB_CHANNEL1 or FORCE_SUB_CHANNEL2:
+        await message.reply(
+            text=FORCE_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username=None if not message.from_user.username else '@' + message.from_user.username,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            quote=True,
+            disable_web_page_preview=True
+        )
+    else:
+        # If there are no force subscribe channels configured, proceed without checking
+        await start_command(client, message)  # Call your existing start_command function
 
 
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
