@@ -9,7 +9,8 @@ from pyrogram.enums import ParseMode
 import sys
 from datetime import datetime
 
-from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, FORCE_SUB_CHANNEL, CHANNEL_ID, PORT
+from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, CHANNEL_ID, PORT
+from fsub import FORCE_SUB_CHANNEL_1, FORCE_SUB_CHANNEL_2  # Import the force subscribe channel IDs from fsub.py
 
 class Bot(Client):
     def __init__(self):
@@ -25,18 +26,49 @@ class Bot(Client):
         )
         self.LOGGER = LOGGER
 
-    async def start(self):
-        await super().start()
-        usr_bot_me = await self.get_me()
-        self.uptime = datetime.now()
+    # Check if a user is a member of any of the specified channels
+async def is_member(client, user_id, channel_ids):
+    for channel_id in channel_ids:
+        try:
+            member = await client.get_chat_member(channel_id, user_id)
+            if member.status in ("member", "administrator", "creator"):
+                return True
+        except:
+            pass
+    return False
 
-        if FORCE_SUB_CHANNEL:
-            try:
-                link = (await self.get_chat(FORCE_SUB_CHANNEL)).invite_link
-                if not link:
-                    await self.export_chat_invite_link(FORCE_SUB_CHANNEL)
-                    link = (await self.get_chat(FORCE_SUB_CHANNEL)).invite_link
-                self.invitelink = link
+# Modify your start command to check if users are members of any of the specified channels
+@Bot.on_message(filters.command('start') & filters.private)
+async def start_command(client: Client, message: Message):
+    user_id = message.from_user.id
+    channel_ids = [FORCE_SUB_CHANNEL_1, FORCE_SUB_CHANNEL_2]  # Use the imported channel IDs from fsub.py
+
+    if await is_member(client, user_id, channel_ids):
+        # User is a member of at least one channel, allow them to use the bot
+        await message.reply_text(START_MSG)
+    else:
+        # User is not a member of any specified channel, provide links to join
+        buttons = []
+
+        for channel_id in channel_ids:
+            invite_link = f"https://t.me/joinchat/{(await client.export_chat_invite_link(channel_id)).invite_link.split('/')[-1]}"
+            buttons.append([
+                InlineKeyboardButton(
+                    "Join Channel",
+                    url=invite_link
+                )
+            ])
+
+        await message.reply(
+            text="You need to join one of the following channels to use this bot:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            quote=True
+        )
+
+# ... The rest of your code remains the same ...
+
+# The part of your code that handles web server and other functionalities
+# should remain unchanged and should be placed after the modifications above.
             except Exception as a:
                 self.LOGGER(__name__).warning(a)
                 self.LOGGER(__name__).warning("Bot can't Export Invite link from Force Sub Channel!")
